@@ -36,23 +36,13 @@ def upload():
         filepath = os.path.join("TrainingImage", f"{name}.{Id}.1.jpg")
         file.save(filepath)
 
-        # Face detect
-        img = cv2.imread(filepath)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        )
-
-        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-
         # Save student
         os.makedirs("StudentDetails", exist_ok=True)
         with open("StudentDetails/StudentDetails.csv", "a+", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([Id, name])
 
-        return f"Person Added ✅ | Faces detected: {len(faces)}"
+        return f"Person Added ✅"
 
     except Exception as e:
         return f"Upload error: {str(e)}"
@@ -68,24 +58,18 @@ def train():
         return f"Training Error: {str(e)}"
 
 
-# ================= RECOGNIZE (IN / OUT) =================
+# ================= RECOGNIZE =================
 @app.route('/recognize_upload', methods=['POST'])
 def recognize_upload():
     try:
         file = request.files.get('image')
-        type = request.form.get("type")  # IN / OUT
+        type = request.form.get("type")
 
         if not file:
-            return "No image received ❌"
+            return "No image ❌"
 
         filepath = "temp.jpg"
         file.save(filepath)
-
-        if not os.path.exists("TrainingImageLabel/Trainner.yml"):
-            return "Model not trained ❌"
-
-        if not os.path.exists("StudentDetails/StudentDetails.csv"):
-            return "Student data missing ❌"
 
         recognizer = cv2.face.LBPHFaceRecognizer_create()
         recognizer.read("TrainingImageLabel/Trainner.yml")
@@ -108,37 +92,39 @@ def recognize_upload():
         date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
         timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
 
-        file_path = f"Attendance/Attendance_{date}.csv"
+        file_path = "Attendance/Attendance.csv"
         os.makedirs("Attendance", exist_ok=True)
 
-        # Load existing data
-        rows = []
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                reader = csv.reader(f)
-                rows = list(reader)
+        # CREATE FILE
+        if not os.path.exists(file_path):
+            with open(file_path, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["ID","Name","Date","IN","OUT","Duration"])
 
-        # remove header if exists
-        if rows and rows[0][0] == "ID":
-            rows = rows[1:]
+        # LOAD DATA
+        with open(file_path, "r") as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+
+        header = rows[0]
+        data = rows[1:]
 
         for (x, y, w, h) in faces:
             Id, conf = recognizer.predict(gray[y:y+h, x:x+w])
 
             if conf < 100:
-                name = df.loc[df['Id'] == Id]['Name'].values
-                name = name[0] if len(name) > 0 else "Unknown"
+                name = df.loc[df['Id'] == Id]['Name'].values[0]
             else:
                 name = "Unknown"
 
             found = False
 
-            for row in rows:
+            for row in data:
                 if row[0] == str(Id) and row[2] == date:
                     if type == "OUT":
                         row[4] = timeStamp
 
-                        # duration calculate
+                        # duration
                         try:
                             t1 = datetime.datetime.strptime(row[3], "%H:%M:%S")
                             t2 = datetime.datetime.strptime(row[4], "%H:%M:%S")
@@ -148,36 +134,31 @@ def recognize_upload():
 
                         found = True
 
-            # NEW ENTRY (IN)
             if type == "IN" and not found:
-                rows.append([Id, name, date, timeStamp, "", ""])
+                data.append([Id, name, date, timeStamp, "", ""])
 
-        # SAVE FILE
+        # SAVE BACK
         with open(file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["ID","Name","Date","IN","OUT","Duration"])
-            writer.writerows(rows)
+            writer.writerow(header)
+            writer.writerows(data)
 
-        return f"Attendance Marked ✅ ({type})"
+        return f"{type} Marked ✅"
 
     except Exception as e:
-        return f"Recognition Error: {str(e)}"
+        return str(e)
 
 
 # ================= VIEW =================
 @app.route('/attendance')
 def attendance():
     try:
-        if not os.path.exists("Attendance"):
-            return "Attendance folder not found ❌"
+        file_path = "Attendance/Attendance.csv"
 
-        files = os.listdir("Attendance")
-        if not files:
-            return "No attendance found"
+        if not os.path.exists(file_path):
+            return render_template("attendance.html", header=[], data=[])
 
-        latest = sorted(files)[-1]
-
-        with open(os.path.join("Attendance", latest)) as f:
+        with open(file_path, "r") as f:
             reader = csv.reader(f)
             header = next(reader, None)
             data = list(reader)
@@ -185,7 +166,7 @@ def attendance():
         return render_template("attendance.html", header=header, data=data)
 
     except Exception as e:
-        return f"Error loading attendance: {str(e)}"
+        return str(e)
 
 
 # ================= RUN =================
