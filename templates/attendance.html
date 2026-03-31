@@ -1,12 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Attendance</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Attendance Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            background: #0f172a;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 20px;
+        }
+
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 90%;
+            background: #1e293b;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th {
+            background: #2563eb;
+            padding: 12px;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        tr:hover {
+            background: #334155;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-top: 20px;
+            background: #dc2626;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #b91c1c;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Attendance Report</h1>
+<h1>📊 Attendance Report</h1>
 
 <table>
     <tr>
@@ -24,8 +74,7 @@
     {% endfor %}
 </table>
 
-<br>
-<a href="/"><button>Back</button></a>
+<a href="/"><button>⬅ Back</button></a>
 
 </body>
 </html>
