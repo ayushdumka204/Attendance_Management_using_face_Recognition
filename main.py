@@ -17,17 +17,25 @@ def home():
     return render_template('index.html')
 
 
-# ================= BROWSER CAMERA UPLOAD (NEW 🔥) =================
 @app.route('/upload', methods=['POST'])
 def upload():
     try:
         file = request.files.get('image')
 
+        # 🔥 ADD THIS (ID + NAME)
+        Id = request.form.get("id")
+        name = request.form.get("name")
+
         if not file:
             return "No image received ❌"
 
+        if not Id or not name:
+            return "ID or Name missing ❌"
+
         os.makedirs("Uploads", exist_ok=True)
-        filepath = os.path.join("Uploads", "capture.jpg")
+
+        # 🔥 CHANGE FILE NAME (important)
+        filepath = os.path.join("Uploads", f"{name}.{Id}.jpg")
         file.save(filepath)
 
         # 🔥 Face detection
@@ -40,11 +48,10 @@ def upload():
 
         faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-        return f"Image received ✅ Faces detected: {len(faces)}"
+        return f"Saved for {name} (ID: {Id}) ✅ | Faces detected: {len(faces)}"
 
     except Exception as e:
         return f"Upload error: {str(e)}"
-
 
 # ================= CAPTURE (OLD - DISABLED ON SERVER) =================
 @app.route('/capture', methods=['POST'])

@@ -8,12 +8,10 @@
 
 <h1>Face Recognition Attendance System</h1>
 
-<!-- ===== EXISTING FORM ===== -->
-<form action="/capture" method="post">
-    <input type="text" name="id" placeholder="Enter ID" required>
-    <input type="text" name="name" placeholder="Enter Name" required>
-    <button type="submit">Add Person</button>
-</form>
+<input type="text" id="id" placeholder="Enter ID" required>
+<input type="text" id="name" placeholder="Enter Name" required>
+<br><br>
+<button onclick="capture()">Add Person (Camera)</button>
 
 <br>
 
@@ -42,6 +40,14 @@ navigator.mediaDevices.getUserMedia({ video: true })
 });
 
 function capture() {
+    const id = document.getElementById("id").value;
+    const name = document.getElementById("name").value;
+
+    if (!id || !name) {
+        alert("Enter ID and Name ❌");
+        return;
+    }
+
     const canvas = document.createElement("canvas");
     const video = document.getElementById("video");
 
@@ -53,6 +59,8 @@ function capture() {
     canvas.toBlob(blob => {
         const formData = new FormData();
         formData.append("image", blob);
+        formData.append("id", id);
+        formData.append("name", name);
 
         fetch("/upload", {
             method: "POST",
@@ -61,9 +69,6 @@ function capture() {
         .then(res => res.text())
         .then(data => {
             document.getElementById("result").innerText = data;
-        })
-        .catch(err => {
-            document.getElementById("result").innerText = "Error sending image ❌";
         });
     });
 }
