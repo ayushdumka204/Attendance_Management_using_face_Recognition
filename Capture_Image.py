@@ -1,4 +1,7 @@
-import csv, cv2, os
+import csv
+import cv2
+import os
+
 
 def is_number(s):
     try:
@@ -7,45 +10,75 @@ def is_number(s):
     except:
         return False
 
+
 def takeImages(Id, name):
+    # 🔴 Validation
     if not (is_number(Id) and name.isalpha()):
-        return "Invalid Input"
+        return "Invalid Input ❌"
 
-    cam = cv2.VideoCapture(0)
-    detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    try:
+        # 🔴 Try opening camera
+        cam = cv2.VideoCapture(0)
 
-    sampleNum = 0
-    os.makedirs("TrainingImage", exist_ok=True)
-    os.makedirs("StudentDetails", exist_ok=True)
+        if not cam.isOpened():
+            return "Camera not available ❌ (Server pe run ho raha hai)"
 
-    while True:
-        ret, img = cam.read()
-        if not ret:
-            break
+        detector = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = detector.detectMultiScale(gray, 1.3, 5)
+        sampleNum = 0
 
-        for (x, y, w, h) in faces:
-            sampleNum += 1
+        os.makedirs("TrainingImage", exist_ok=True)
+        os.makedirs("StudentDetails", exist_ok=True)
 
-            cv2.imwrite(
-                f"TrainingImage/{name}.{Id}.{sampleNum}.jpg",
-                gray[y:y+h, x:x+w]
-            )
+        while True:
+            ret, img = cam.read()
+            if not ret:
+                break
 
-            cv2.rectangle(img, (x,y),(x+w,y+h),(0,255,0),2)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = detector.detectMultiScale(gray, 1.3, 5)
 
-        cv2.imshow("Capture Face", img)
+            for (x, y, w, h) in faces:
+                sampleNum += 1
 
-        if cv2.waitKey(1) & 0xFF == ord('q') or sampleNum > 100:
-            break
+                cv2.imwrite(
+                    f"TrainingImage/{name}.{Id}.{sampleNum}.jpg",
+                    gray[y:y+h, x:x+w]
+                )
 
-    cam.release()
-    cv2.destroyAllWindows()
+                # 🟢 LOCAL me rectangle dikhega
+                try:
+                    cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    cv2.imshow("Capture Face", img)
+                except:
+                    pass  # server pe ignore
 
-    with open("StudentDetails/StudentDetails.csv", 'a+', newline='') as f:
-        csv.writer(f).writerow([Id, name])
+            # Exit condition
+            if sampleNum > 100:
+                break
 
-    return "Images Saved Successfully"
+            try:
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            except:
+                pass  # server pe ignore
+
+        cam.release()
+
+        try:
+            cv2.destroyAllWindows()
+        except:
+            pass
+
+        # 🔴 Save student details
+        with open("StudentDetails/StudentDetails.csv", 'a+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([Id, name])
+
+        return f"Images Saved Successfully ✅ (Total: {sampleNum})"
+
+    except Exception as e:
+        return f"Error in capture: {str(e)}"
 # end
