@@ -12,17 +12,38 @@
             font-family: Arial;
         }
 
+        .container {
+            margin-top: 50px;
+        }
+
         button {
-            padding: 12px 25px;
+            padding: 15px 30px;
             margin: 10px;
+            font-size: 16px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
         }
 
-        video {
+        .primary { background: #2563eb; }
+        .success { background: #16a34a; }
+        .danger { background: #dc2626; }
+        .dark { background: #1e293b; }
+
+        .video-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        video, canvas {
             width: 350px;
             border-radius: 10px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .popup {
@@ -41,35 +62,47 @@
             margin: 5px;
         }
 
-        #resultText {
-            font-size: 20px;
-            margin-top: 15px;
+        progress {
+            width: 250px;
+            height: 20px;
         }
     </style>
 </head>
 <body>
 
-<h1>🎯 Attendance System</h1>
+<h1>🎯 Attendance Capture System</h1>
 
-<button onclick="openAddPerson()">Add Person</button>
-<button onclick="train()">Train</button>
-<button onclick="markAttendance()">Mark Attendance</button>
-<button onclick="manualClockOut()">Clock OUT</button>
-<a href="/attendance"><button>View</button></a>
+<div class="container">
+    <button class="primary" onclick="openAddPerson()">Add Person</button>
+    <button class="success" onclick="train()">Train Images</button>
+    <button class="dark" onclick="markAttendance()">Mark Attendance</button>
+    <button class="danger" onclick="manualClockOut()">⏹ Clock OUT</button>
+    <a href="/attendance"><button>View Attendance</button></a>
+</div>
 
-<br><br>
-
-<video id="video" autoplay></video>
-
-<p id="resultText"></p>
+<!-- VIDEO + CANVAS -->
+<div class="video-container">
+    <video id="video" autoplay></video>
+    <canvas id="overlay"></canvas>
+</div>
 
 <!-- ADD PERSON POPUP -->
-<div class="popup" id="popup">
+<div class="popup" id="addPopup">
+    <h3>Enter Details</h3>
     <input id="id" placeholder="ID">
     <input id="name" placeholder="Name">
     <br><br>
-    <button onclick="startCamera()">Start Camera</button>
-    <button onclick="capture()">Capture</button>
+
+    <button onclick="startCamera()">🎥 Start Camera</button>
+    <br><br>
+    <button onclick="clickCapture()">📸 Capture</button>
+</div>
+
+<!-- TRAIN POPUP -->
+<div id="trainPopup" class="popup">
+    <h3>Training Model...</h3>
+    <br>
+    <progress id="progressBar" value="0" max="100"></progress>
 </div>
 
 <script>
@@ -83,36 +116,26 @@ function startCamera() {
         stream = s;
         const video = document.getElementById("video");
         video.srcObject = stream;
-
-        return new Promise(resolve => {
-            video.onloadedmetadata = () => resolve(video);
-        });
     });
 }
 
-// ===== OPEN POPUP =====
+// ===== ADD PERSON =====
 function openAddPerson() {
-    document.getElementById("popup").style.display = "block";
+    document.getElementById("addPopup").style.display = "block";
 }
 
-// ===== CAPTURE FIXED =====
-function capture() {
+function clickCapture() {
     const id = document.getElementById("id").value;
     const name = document.getElementById("name").value;
 
     if (!id || !name) {
-        alert("Enter ID & Name ❌");
+        alert("Enter ID and Name ❌");
         return;
     }
 
     const video = document.getElementById("video");
-
-    if (video.videoWidth === 0) {
-        alert("Camera not ready ❌");
-        return;
-    }
-
     const canvas = document.createElement("canvas");
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
@@ -129,49 +152,77 @@ function capture() {
             body: formData
         })
         .then(res => res.text())
-        .then(msg => {
-            alert(msg);
+        .then(() => {
+            alert("Person Added ✅");
             closeCamera();
         });
     });
 }
 
-// ===== CLOSE CAMERA =====
 function closeCamera() {
     if (stream) stream.getTracks().forEach(track => track.stop());
-    document.getElementById("popup").style.display = "none";
+    document.getElementById("addPopup").style.display = "none";
 }
 
 // ===== TRAIN =====
 function train() {
-    fetch("/train")
-    .then(() => alert("Training Done ✅"));
+    document.getElementById("trainPopup").style.display = "block";
+
+    let progress = 0;
+    let interval = setInterval(() => {
+        progress += 10;
+        document.getElementById("progressBar").value = progress;
+
+        if (progress >= 100) {
+            clearInterval(interval);
+
+            fetch("/train")
+            .then(() => {
+                alert("Training Done ✅");
+                document.getElementById("trainPopup").style.display = "none";
+                document.getElementById("progressBar").value = 0;
+            });
+        }
+    }, 300);
 }
 
 // ===== MARK ATTENDANCE =====
 function markAttendance() {
+    let duration = prompt("Enter Class Duration (minutes)");
+    if (!duration) return;
+
     startCamera();
 
     setTimeout(() => {
         recognize("IN");
+        alert("Clock IN ✅");
+
+        setTimeout(() => {
+            recognize("OUT");
+            alert("Auto Clock OUT ⏰");
+            closeCamera();
+        }, duration * 60000);
+
     }, 2000);
 }
 
 // ===== MANUAL OUT =====
 function manualClockOut() {
     recognize("OUT");
+    alert("Manual Clock OUT ✅");
     closeCamera();
 }
 
-// ===== RECOGNITION =====
+// ===== RECOGNITION + OVERLAY =====
 function recognize(type) {
     const video = document.getElementById("video");
+    const canvas = document.getElementById("overlay");
+    const ctx = canvas.getContext("2d");
 
-    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    canvas.getContext("2d").drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0);
 
     canvas.toBlob(blob => {
         const formData = new FormData();
@@ -186,11 +237,16 @@ function recognize(type) {
         .then(data => {
 
             if (data.status === "success") {
-                document.getElementById("resultText").innerText =
-                    `👤 ${data.name} (ID: ${data.id})`;
-            } else {
-                document.getElementById("resultText").innerText =
-                    "Face not detected ❌";
+
+                // 🔥 DRAW BOX
+                ctx.strokeStyle = "lime";
+                ctx.lineWidth = 4;
+                ctx.strokeRect(100, 100, 200, 200);
+
+                // 🔥 NAME + ID
+                ctx.fillStyle = "lime";
+                ctx.font = "20px Arial";
+                ctx.fillText(`${data.name} (${data.id})`, 100, 90);
             }
         });
     });
