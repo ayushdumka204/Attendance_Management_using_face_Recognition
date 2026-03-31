@@ -42,10 +42,10 @@ def upload():
             writer = csv.writer(f)
             writer.writerow([Id, name])
 
-        return f"Person Added ✅"
+        return "Person Added ✅"
 
     except Exception as e:
-        return f"Upload error: {str(e)}"
+        return str(e)
 
 
 # ================= TRAIN =================
@@ -55,7 +55,7 @@ def train():
         Train_Image.TrainImages()
         return "Model Trained Successfully ✅"
     except Exception as e:
-        return f"Training Error: {str(e)}"
+        return str(e)
 
 
 # ================= RECOGNIZE =================
@@ -63,7 +63,7 @@ def train():
 def recognize_upload():
     try:
         file = request.files.get('image')
-        type = request.form.get("type")
+        type = request.form.get("type")  # IN / OUT
 
         if not file:
             return "No image ❌"
@@ -95,7 +95,7 @@ def recognize_upload():
         file_path = "Attendance/Attendance.csv"
         os.makedirs("Attendance", exist_ok=True)
 
-        # CREATE FILE
+        # CREATE FILE IF NOT EXISTS
         if not os.path.exists(file_path):
             with open(file_path, "w", newline="") as f:
                 writer = csv.writer(f)
@@ -117,14 +117,28 @@ def recognize_upload():
             else:
                 name = "Unknown"
 
+            # 🔥 DRAW BOX (backend image)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (0,255,0), 2)
+
+            # 🔥 SHOW NAME
+            cv2.putText(
+                img,
+                f"{name} ({Id})",
+                (x, y-10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0,255,0),
+                2
+            )
+
             found = False
 
+            # UPDATE EXISTING
             for row in data:
                 if row[0] == str(Id) and row[2] == date:
                     if type == "OUT":
                         row[4] = timeStamp
 
-                        # duration
                         try:
                             t1 = datetime.datetime.strptime(row[3], "%H:%M:%S")
                             t2 = datetime.datetime.strptime(row[4], "%H:%M:%S")
@@ -134,10 +148,11 @@ def recognize_upload():
 
                         found = True
 
-            if type == "IN" and not found:
+            # ADD NEW ENTRY
+            if type == "IN":
                 data.append([Id, name, date, timeStamp, "", ""])
 
-        # SAVE BACK
+        # SAVE FILE
         with open(file_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(header)
