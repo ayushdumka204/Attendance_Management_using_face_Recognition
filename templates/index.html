@@ -1,36 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Attendance System</title>
+    <title>Face Recognition Attendance</title>
     <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px;
+            width: 200px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        video {
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .container {
+            margin-top: 20px;
+        }
+
+        .section {
+            margin-top: 30px;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Face Recognition Attendance System</h1>
+<h1>🎯 Face Recognition Attendance System</h1>
 
-<input type="text" id="id" placeholder="Enter ID" required>
-<input type="text" id="name" placeholder="Enter Name" required>
-<br><br>
-<button onclick="capture()">Add Person (Camera)</button>
+<div class="container">
 
-<br>
+    <!-- ===== USER INPUT ===== -->
+    <div class="section">
+        <h3>Enter Details</h3>
+        <input type="text" id="id" placeholder="Enter ID" required>
+        <input type="text" id="name" placeholder="Enter Name" required>
+    </div>
 
-<a href="/train"><button>Train Images</button></a>
-<a href="/recognize"><button>Mark Attendance</button></a>
-<a href="/attendance"><button>View Attendance</button></a>
+    <!-- ===== CAMERA ===== -->
+    <div class="section">
+        <h3>Camera</h3>
+        <video id="video" width="350" autoplay></video>
+        <br><br>
 
-<hr>
+        <button onclick="capture()">📸 Add Person</button>
+        <button onclick="recognize()">🧠 Mark Attendance</button>
+    </div>
 
-<!-- ===== NEW CAMERA SECTION 🔥 ===== -->
-<h2>Browser Camera Capture</h2>
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="section">
+        <a href="/train"><button>⚙️ Train Model</button></a>
+        <a href="/attendance"><button>📊 View Attendance</button></a>
+    </div>
 
-<video id="video" width="400" autoplay style="border:1px solid black;"></video>
-<br><br>
-<button onclick="capture()">Capture Face</button>
+    <!-- ===== RESULT ===== -->
+    <div class="section">
+        <h3>Status</h3>
+        <p id="result">Waiting...</p>
+    </div>
 
-<p id="result"></p>
+</div>
 
 <script>
+// ===== CAMERA ACCESS =====
 navigator.mediaDevices.getUserMedia({ video: true })
 .then(stream => {
     document.getElementById("video").srcObject = stream;
@@ -39,6 +92,8 @@ navigator.mediaDevices.getUserMedia({ video: true })
     document.getElementById("result").innerText = "Camera access denied ❌";
 });
 
+
+// ===== CAPTURE FUNCTION =====
 function capture() {
     const id = document.getElementById("id").value;
     const name = document.getElementById("name").value;
@@ -48,8 +103,20 @@ function capture() {
         return;
     }
 
-    const canvas = document.createElement("canvas");
+    sendImage("/upload", { id, name });
+}
+
+
+// ===== RECOGNIZE FUNCTION =====
+function recognize() {
+    sendImage("/recognize_upload");
+}
+
+
+// ===== COMMON IMAGE SENDER =====
+function sendImage(url, extraData = {}) {
     const video = document.getElementById("video");
+    const canvas = document.createElement("canvas");
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -59,16 +126,24 @@ function capture() {
     canvas.toBlob(blob => {
         const formData = new FormData();
         formData.append("image", blob);
-        formData.append("id", id);
-        formData.append("name", name);
 
-        fetch("/upload", {
+        // extra data add (id, name)
+        for (let key in extraData) {
+            formData.append(key, extraData[key]);
+        }
+
+        document.getElementById("result").innerText = "Processing... ⏳";
+
+        fetch(url, {
             method: "POST",
             body: formData
         })
         .then(res => res.text())
         .then(data => {
             document.getElementById("result").innerText = data;
+        })
+        .catch(err => {
+            document.getElementById("result").innerText = "Error ❌";
         });
     });
 }
