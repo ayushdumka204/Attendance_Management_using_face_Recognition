@@ -25,22 +25,31 @@ def upload():
         Id = request.form.get("id")
         name = request.form.get("name")
 
-        if not file:
-            return "No image received ❌"
+        if not file or not Id or not name:
+            return "Missing data ❌"
 
-        if not Id or not name:
-            return "ID or Name missing ❌"
+        folder = "TrainingImage"
+        os.makedirs(folder, exist_ok=True)
 
-        os.makedirs("TrainingImage", exist_ok=True)
-
-        filepath = os.path.join("TrainingImage", f"{name}.{Id}.1.jpg")
+        # 🔥 MULTIPLE IMAGE SAVE FIX
+        count = len([f for f in os.listdir(folder) if f.startswith(f"{name}.{Id}")])
+        filepath = os.path.join(folder, f"{name}.{Id}.{count+1}.jpg")
         file.save(filepath)
 
-        # Save student
+        # 🔥 SAVE STUDENT ONLY ONCE
         os.makedirs("StudentDetails", exist_ok=True)
-        with open("StudentDetails/StudentDetails.csv", "a+", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([Id, name])
+        file_path = "StudentDetails/StudentDetails.csv"
+
+        if not os.path.exists(file_path):
+            with open(file_path, "w", newline="") as f:
+                csv.writer(f).writerow(["Id", "Name"])
+
+        rows = list(csv.reader(open(file_path)))
+        exists = any(row[0] == Id for row in rows[1:])
+
+        if not exists:
+            with open(file_path, "a", newline="") as f:
+                csv.writer(f).writerow([Id, name])
 
         return "Person Added ✅"
 
@@ -63,7 +72,7 @@ def train():
 def recognize_upload():
     try:
         file = request.files.get('image')
-        type = request.form.get("type")  # IN / OUT
+        type = request.form.get("type")
 
         if not file:
             return jsonify({"status": "error", "msg": "No image"})
@@ -95,19 +104,13 @@ def recognize_upload():
         file_path = "Attendance/Attendance.csv"
         os.makedirs("Attendance", exist_ok=True)
 
-        # CREATE FILE IF NOT EXISTS
+        # CREATE FILE
         if not os.path.exists(file_path):
             with open(file_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["ID","Name","Date","IN","OUT","Duration"])
+                csv.writer(f).writerow(["ID","Name","Date","IN","OUT","Duration"])
 
-        # LOAD DATA
-        with open(file_path, "r") as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-
-        header = rows[0]
-        data = rows[1:]
+        rows = list(csv.reader(open(file_path)))
+        header, data = rows[0], rows[1:]
 
         detected_name = "Unknown"
         detected_id = ""
@@ -123,26 +126,18 @@ def recognize_upload():
             detected_name = name
             detected_id = Id
 
-            # DRAW BOX (backend only)
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0,255,0), 2)
-            cv2.putText(
-                img,
-                f"{name} ({Id})",
-                (x, y-10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (0,255,0),
-                2
-            )
-
             found = False
 
-            # UPDATE EXISTING (OUT)
             for row in data:
                 if row[0] == str(Id) and row[2] == date:
-                    if type == "OUT":
-                        row[4] = timeStamp
 
+                    # ✅ CLOCK IN only once
+                    if type == "IN" and row[3] == "":
+                        row[3] = timeStamp
+
+                    # ✅ CLOCK OUT update
+                    elif type == "OUT":
+                        row[4] = timeStamp
                         try:
                             t1 = datetime.datetime.strptime(row[3], "%H:%M:%S")
                             t2 = datetime.datetime.strptime(row[4], "%H:%M:%S")
@@ -150,13 +145,13 @@ def recognize_upload():
                         except:
                             row[5] = ""
 
-                        found = True
+                    found = True
 
-            # ADD NEW ENTRY (IN)
-            if type == "IN":
+            # ✅ NEW ENTRY
+            if not found and type == "IN":
                 data.append([Id, name, date, timeStamp, "", ""])
 
-        # SAVE FILE
+        # SAVE
         with open(file_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(header)
