@@ -52,6 +52,11 @@
             padding: 10px;
             margin: 5px;
         }
+
+        progress {
+            width: 250px;
+            height: 20px;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +68,7 @@
     <button class="primary" onclick="openAddPerson()">Add Person</button>
     <button class="success" onclick="train()">Train Images</button>
     <button class="dark" onclick="markAttendance()">Mark Attendance</button>
+    <button class="danger" onclick="manualClockOut()">⏹ Clock OUT</button>
     <a href="/attendance"><button>View Attendance</button></a>
 
 </div>
@@ -76,14 +82,25 @@
     <input id="id" placeholder="ID">
     <input id="name" placeholder="Name">
     <br><br>
-    <button onclick="startCamera()">Start Camera</button>
+
+    <button onclick="startCamera()">🎥 Start Camera</button>
+    <br><br>
+    <button onclick="clickCapture()">📸 Capture</button>
+</div>
+
+<!-- TRAIN POPUP -->
+<div id="trainPopup" class="popup">
+    <h3>Training Model...</h3>
+    <br>
+    <progress id="progressBar" value="0" max="100"></progress>
 </div>
 
 <script>
 
 let stream;
+let clockInTime = null;
 
-// ===== ADD PERSON FLOW =====
+// ===== ADD PERSON =====
 function openAddPerson() {
     document.getElementById("addPopup").style.display = "block";
 }
@@ -95,14 +112,17 @@ function startCamera() {
         const video = document.getElementById("video");
         video.srcObject = stream;
         video.style.display = "block";
-
-        setTimeout(captureImage, 2000); // auto capture after 2 sec
     });
 }
 
-function captureImage() {
+function clickCapture() {
     const id = document.getElementById("id").value;
     const name = document.getElementById("name").value;
+
+    if (!id || !name) {
+        alert("Please enter ID and Name");
+        return;
+    }
 
     const canvas = document.createElement("canvas");
     const video = document.getElementById("video");
@@ -124,14 +144,16 @@ function captureImage() {
         })
         .then(res => res.text())
         .then(msg => {
-            alert(msg); // ✅ popup like PDF
+            alert("✅ Person Added Successfully");
             closeCamera();
         });
     });
 }
 
 function closeCamera() {
-    stream.getTracks().forEach(track => track.stop());
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
     document.getElementById("video").style.display = "none";
     document.getElementById("addPopup").style.display = "none";
 }
@@ -139,16 +161,33 @@ function closeCamera() {
 
 // ===== TRAIN =====
 function train() {
-    fetch("/train")
-    .then(res => res.text())
-    .then(msg => alert(msg));
+    document.getElementById("trainPopup").style.display = "block";
+
+    let progress = 0;
+    let interval = setInterval(() => {
+        progress += 10;
+        document.getElementById("progressBar").value = progress;
+
+        if (progress >= 100) {
+            clearInterval(interval);
+
+            fetch("/train")
+            .then(res => res.text())
+            .then(msg => {
+                alert("✅ Training Complete");
+                document.getElementById("trainPopup").style.display = "none";
+                document.getElementById("progressBar").value = 0;
+            });
+        }
+    }, 300);
 }
 
 
 // ===== MARK ATTENDANCE =====
 function markAttendance() {
+    let duration = prompt("Enter Class Duration (in minutes)");
 
-    let choice = confirm("Clock IN? (Cancel = Clock OUT)");
+    if (!duration) return;
 
     navigator.mediaDevices.getUserMedia({ video: true })
     .then(s => {
@@ -158,29 +197,51 @@ function markAttendance() {
         video.style.display = "block";
 
         setTimeout(() => {
-            const canvas = document.createElement("canvas");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
 
-            canvas.getContext("2d").drawImage(video, 0, 0);
+            recognize("IN");
+            clockInTime = new Date();
 
-            canvas.toBlob(blob => {
-                const formData = new FormData();
-                formData.append("image", blob);
-                formData.append("type", choice ? "IN" : "OUT");
+            alert("Clock IN Done ✅");
 
-                fetch("/recognize_upload", {
-                    method: "POST",
-                    body: formData
-                })
-                .then(res => res.text())
-                .then(msg => {
-                    alert(msg); // ✅ popup
-                    closeCamera();
-                });
-            });
+            // AUTO CLOCK OUT
+            setTimeout(() => {
+                recognize("OUT");
+                alert("Auto Clock OUT ⏰");
+                closeCamera();
+            }, duration * 60000);
 
         }, 2000);
+    });
+}
+
+
+// ===== MANUAL CLOCK OUT =====
+function manualClockOut() {
+    recognize("OUT");
+    alert("Manual Clock OUT ✅");
+    closeCamera();
+}
+
+
+// ===== RECOGNIZE =====
+function recognize(type) {
+    const video = document.getElementById("video");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    canvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append("image", blob);
+        formData.append("type", type);
+
+        fetch("/recognize_upload", {
+            method: "POST",
+            body: formData
+        });
     });
 }
 
