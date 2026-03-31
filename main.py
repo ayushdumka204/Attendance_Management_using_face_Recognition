@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import csv
 import os
 import cv2
@@ -66,7 +66,7 @@ def recognize_upload():
         type = request.form.get("type")  # IN / OUT
 
         if not file:
-            return "No image ❌"
+            return jsonify({"status": "error", "msg": "No image"})
 
         filepath = "temp.jpg"
         file.save(filepath)
@@ -86,7 +86,7 @@ def recognize_upload():
         faces = faceCascade.detectMultiScale(gray, 1.2, 5)
 
         if len(faces) == 0:
-            return "No face detected ❌"
+            return jsonify({"status": "error", "msg": "No face detected"})
 
         ts = time.time()
         date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
@@ -109,6 +109,9 @@ def recognize_upload():
         header = rows[0]
         data = rows[1:]
 
+        detected_name = "Unknown"
+        detected_id = ""
+
         for (x, y, w, h) in faces:
             Id, conf = recognizer.predict(gray[y:y+h, x:x+w])
 
@@ -117,10 +120,11 @@ def recognize_upload():
             else:
                 name = "Unknown"
 
-            # 🔥 DRAW BOX (backend image)
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0,255,0), 2)
+            detected_name = name
+            detected_id = Id
 
-            # 🔥 SHOW NAME
+            # DRAW BOX (backend only)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (0,255,0), 2)
             cv2.putText(
                 img,
                 f"{name} ({Id})",
@@ -133,7 +137,7 @@ def recognize_upload():
 
             found = False
 
-            # UPDATE EXISTING
+            # UPDATE EXISTING (OUT)
             for row in data:
                 if row[0] == str(Id) and row[2] == date:
                     if type == "OUT":
@@ -148,7 +152,7 @@ def recognize_upload():
 
                         found = True
 
-            # ADD NEW ENTRY
+            # ADD NEW ENTRY (IN)
             if type == "IN":
                 data.append([Id, name, date, timeStamp, "", ""])
 
@@ -158,10 +162,14 @@ def recognize_upload():
             writer.writerow(header)
             writer.writerows(data)
 
-        return f"{type} Marked ✅"
+        return jsonify({
+            "status": "success",
+            "name": detected_name,
+            "id": detected_id
+        })
 
     except Exception as e:
-        return str(e)
+        return jsonify({"status": "error", "msg": str(e)})
 
 
 # ================= VIEW =================
