@@ -48,6 +48,8 @@ def attendance():
     return render_template("attendance.html", header=header, data=data)
 
 
+import os
+
 if __name__ == "__main__":
-    app.run(debug=True)
-# end
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
