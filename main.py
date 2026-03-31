@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for
 import csv
 import os
+import cv2
 
-# 🔴 IMPORTANT: ye imports tabhi kaam karenge jab tu GUI functions hata de
-# warna Render pe crash ho sakta hai
+# Existing modules
 import Capture_Image
 import Train_Image
 import Recognize
@@ -17,18 +17,39 @@ def home():
     return render_template('index.html')
 
 
-# ================= CAPTURE =================
-@app.route('/capture', methods=['POST'])
-def capture():
+# ================= BROWSER CAMERA UPLOAD (NEW 🔥) =================
+@app.route('/upload', methods=['POST'])
+def upload():
     try:
-        Id = request.form.get('id')
-        name = request.form.get('name')
+        file = request.files.get('image')
 
-        msg = Capture_Image.takeImages(Id, name)
-        return str(msg)
+        if not file:
+            return "No image received ❌"
+
+        os.makedirs("Uploads", exist_ok=True)
+        filepath = os.path.join("Uploads", "capture.jpg")
+        file.save(filepath)
+
+        # 🔥 Face detection
+        img = cv2.imread(filepath)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+        return f"Image received ✅ Faces detected: {len(faces)}"
 
     except Exception as e:
-        return f"Error in capture: {str(e)}"
+        return f"Upload error: {str(e)}"
+
+
+# ================= CAPTURE (OLD - DISABLED ON SERVER) =================
+@app.route('/capture', methods=['POST'])
+def capture():
+    return "Use browser camera instead ❌"
 
 
 # ================= TRAIN =================
@@ -37,7 +58,6 @@ def train():
     try:
         Train_Image.TrainImages()
         return "Training Done ✅"
-
     except Exception as e:
         return f"Error in training: {str(e)}"
 
@@ -46,9 +66,7 @@ def train():
 @app.route('/recognize')
 def recognize():
     try:
-        Recognize.recognize_attendence()
-        return "Recognition Done ✅"
-
+        return Recognize.recognize_attendence()
     except Exception as e:
         return f"Error in recognize: {str(e)}"
 
