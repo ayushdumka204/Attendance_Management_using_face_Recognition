@@ -1,6 +1,6 @@
 flask
 numpy
-opencv-python-headless
+opencv-contrib-python-headless==4.10.0.84
 pandas
 Pillow
 demjson3
