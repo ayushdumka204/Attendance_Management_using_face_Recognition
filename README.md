@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # **Attendance Capture System Using Face Recognition**
 Attendance Capture System Using Face Recognition is a application implemented using Python, OpenCV, Pandas, Pillow, PySimpleGUI that works like an application that records attendace using Face Recognition.
 <br><br>
@@ -136,3 +137,6 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/)
 © Abhinav Mathur (ELLIPSIS)
 
 Licensed under [MIT License](LICENSE).
+=======
+# Attendance_Management_using_face_Recognition
+>>>>>>> 2a48d1627a4154285f4667aba1b73a4ec5655e65
