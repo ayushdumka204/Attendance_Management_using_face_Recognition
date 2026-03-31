@@ -8,6 +8,7 @@
 
 <h1>Face Recognition Attendance System</h1>
 
+<!-- ===== EXISTING FORM ===== -->
 <form action="/capture" method="post">
     <input type="text" name="id" placeholder="Enter ID" required>
     <input type="text" name="name" placeholder="Enter Name" required>
@@ -19,6 +20,54 @@
 <a href="/train"><button>Train Images</button></a>
 <a href="/recognize"><button>Mark Attendance</button></a>
 <a href="/attendance"><button>View Attendance</button></a>
+
+<hr>
+
+<!-- ===== NEW CAMERA SECTION 🔥 ===== -->
+<h2>Browser Camera Capture</h2>
+
+<video id="video" width="400" autoplay style="border:1px solid black;"></video>
+<br><br>
+<button onclick="capture()">Capture Face</button>
+
+<p id="result"></p>
+
+<script>
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+    document.getElementById("video").srcObject = stream;
+})
+.catch(err => {
+    document.getElementById("result").innerText = "Camera access denied ❌";
+});
+
+function capture() {
+    const canvas = document.createElement("canvas");
+    const video = document.getElementById("video");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    canvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append("image", blob);
+
+        fetch("/upload", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.text())
+        .then(data => {
+            document.getElementById("result").innerText = data;
+        })
+        .catch(err => {
+            document.getElementById("result").innerText = "Error sending image ❌";
+        });
+    });
+}
+</script>
 
 </body>
 </html>
