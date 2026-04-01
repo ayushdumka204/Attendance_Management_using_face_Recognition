@@ -134,7 +134,6 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/)
 
 # License
 
-© Abhinav Mathur (ELLIPSIS)
 
 Licensed under [MIT License](LICENSE).
 =======

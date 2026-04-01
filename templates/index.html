@@ -1,169 +1,289 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Attendance System</title>
+    <meta charset="UTF-8">
+    <title>Attendance System Using Face Recognition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <style>
+        :root {
+            --bg: #0f172a;
+            --card: rgba(30, 41, 59, 0.95);
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --accent: #38bdf8;
+        }
+
         body {
-            background: #0f172a;
+            background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), 
+                        url('/static/images/Facial_Recognition_logo.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
             color: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Desktop par scroll band, panels manage karenge */
+        }
+
+        header {
+            background: var(--card);
+            padding: 1rem;
             text-align: center;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            z-index: 10;
         }
 
-        .container {
-            margin-top: 30px;
-            margin-bottom: 20px;
+        .main-wrapper {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
         }
 
-        button {
-            padding: 12px 24px;
-            margin: 8px;
-            font-size: 15px;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.3s;
+        /* Responsive Grid for Mobile */
+        @media (max-width: 768px) {
+            body { overflow: auto; height: auto; }
+            .main-wrapper { flex-direction: column; height: auto; }
+            .left-panel { max-width: 100% !important; }
+            .video-box { aspect-ratio: 4/3 !important; height: auto !important; }
         }
 
-        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        /* ⬅️ LEFT PANEL (Controls) */
+        .left-panel {
+            flex: 0 0 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
 
-        .primary { background: #2563eb; }
-        .success { background: #16a34a; }
-        .danger { background: #dc2626; }
-        .dark { background: #334155; }
-        .view-btn { background: #6366f1; color: white; text-decoration: none; display: inline-block; }
+        /* ➡️ RIGHT PANEL (Camera Top-Bottom Fit) */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--card);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(15px);
+        }
 
-        .video-container {
+        .panel {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 🟢 Video Box - Top to Bottom Fit */
+        .video-box {
             position: relative;
-            display: inline-block;
-            background: #1e293b;
-            padding: 10px;
+            background: #000;
             border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden;
+            flex: 1; /* Takes all available height */
+            border: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Mirror jaisa full screen effect */
+            transform: scaleX(-1);
         }
 
-        video, canvas {
-            width: 400px; /* Thoda bada kiya clarity ke liye */
-            border-radius: 10px;
-            display: block;
+        /* 🔘 Buttons */
+        button {
+            padding: 14px;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-dark { background: #334155; color: white; }
 
-        canvas {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-        }
-
-        /* NEW: Result Box Style */
-        .result-box {
-            margin-top: 20px;
-            padding: 15px;
-            background: #1e293b;
-            display: inline-block;
-            min-width: 300px;
-            border-radius: 10px;
-            border-left: 5px solid #2563eb;
-        }
-
-        .result-box h2 { margin: 0; color: #2ecc71; font-size: 24px; }
-        .result-box p { margin: 5px 0 0; color: #94a3b8; font-size: 18px; }
-
-        .popup {
-            display: none;
+        /* Training Overlay */
+        #trainingOverlay {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #1e293b;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-            z-index: 100;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .status-card {
+            margin-top: auto; /* Push to bottom of left panel */
+            padding: 15px;
+            border-radius: 12px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid var(--accent);
+            text-align: center;
         }
 
         input {
-            padding: 12px;
-            margin: 10px;
-            border-radius: 5px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: white;
-            width: 80%;
+            width: 100%; padding: 12px; margin-bottom: 10px;
+            background: #0f172a; border: 1px solid #334155;
+            border-radius: 8px; color: white; box-sizing: border-box;
         }
 
-        progress { width: 100%; height: 20px; margin-top: 10px; }
+        .hidden { display: none !important; }
+        #scanner-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: 4px solid var(--accent);
+            box-shadow: inset 0 0 100px rgba(56, 189, 248, 0.3);
+            display: none;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 0.7; } 100% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-<h1>🎯 Attendance Capture System</h1>
+<header>
+    <h2 style="margin:0; font-weight: 800; color:var(--accent); text-transform: uppercase;">Attendance System Using Face Recognition</h2>
+</header>
 
-<div class="container">
-    <button class="primary" onclick="openAddPerson()">👤 Add Person</button>
-    <button class="success" onclick="train()">⚙️ Train Model</button>
-    <button class="dark" onclick="markAttendance()">🔔 Start Attendance</button>
-    <button class="danger" onclick="manualClockOut()">⏹ Manual OUT</button>
-    <a href="/attendance" class="view-btn" style="border-radius: 6px; padding: 12px 24px; font-weight: bold;">📊 View Logs</a>
+<div id="trainingOverlay" class="hidden">
+    <div style="text-align: center;">
+        <h3>⚙️ Training AI Engine...</h3>
+        <div style="width: 250px; background: #334155; height: 10px; border-radius: 5px; margin: 20px auto; overflow: hidden;">
+            <div id="progressBar" style="width: 0%; background: var(--accent); height: 100%; transition: 0.3s;"></div>
+        </div>
+        <p id="percentText" style="font-weight: bold; font-size: 2rem;">0%</p>
+    </div>
 </div>
 
-<div class="video-container">
-    <video id="video" autoplay muted></video>
-    <canvas id="overlay"></canvas>
-</div>
+<div class="main-wrapper">
+    
+    <div class="left-panel">
+        
+        <div id="regForm" class="panel hidden">
+            <h3 style="margin-top:0; color:var(--accent);">👤 Registration</h3>
+            <input id="id" type="number" placeholder="Enter Student ID">
+            <input id="name" type="text" placeholder="Enter Full Name">
+            <button class="btn-success" onclick="clickCapture()">📸 Save Profile</button>
+            <button class="btn-dark" style="margin-top: 10px;" onclick="toggleReg(false)">Cancel</button>
+        </div>
 
-<div id="info-display" class="result-box" style="display: none;">
-    <h2 id="res-name">Scanning...</h2>
-    <p id="res-id">ID: --</p>
-</div>
+        <div id="mainControls" class="panel">
+            <h4 style="margin-top:0; color:#94a3b8; font-size: 0.8rem; letter-spacing: 1px;">DASHBOARD</h4>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn-primary" onclick="toggleReg(true)">➕ Add New Person</button>
+                <button id="trainBtn" class="btn-dark" onclick="trainModel()" disabled>⚙️ Train AI Model</button>
+                <button class="btn-success" onclick="startAttendanceSession()">🔔 Start Attendance</button>
+                
+                <div id="sessionActions" class="hidden">
+                    <button class="btn-danger" onclick="manualClockOut()">⏹ Manual Clock OUT</button>
+                </div>
 
-<div class="popup" id="addPopup">
-    <h3 style="margin-top:0;">New Registration</h3>
-    <input id="id" type="number" placeholder="Enter Student ID">
-    <input id="name" type="text" placeholder="Enter Full Name">
-    <br><br>
-    <button class="primary" onclick="startCamera()">🎥 Open Camera</button>
-    <button class="success" onclick="clickCapture()">📸 Capture & Save</button>
-    <button class="danger" onclick="closeCamera()">Cancel</button>
-</div>
+                <a href="/attendance" style="text-decoration:none;">
+                    <button class="btn-dark" style="width: 100%;">📊 Attendance Logs</button>
+                </a>
+            </div>
+        </div>
 
-<div id="trainPopup" class="popup">
-    <h3>AI Model Training...</h3>
-    <p>Please wait, processing images.</p>
-    <progress id="progressBar" value="0" max="100"></progress>
+        <div id="statusCard" class="status-card hidden">
+            <h5 id="statusTitle" style="margin:0; color:var(--accent);">Ready to Scan</h5>
+            <div id="scanResult" class="hidden">
+                <h2 id="res-name" style="margin:10px 0 0;">---</h2>
+                <p id="res-id" style="margin:5px 0 0; color:#94a3b8; font-weight: bold;">ID: ---</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span id="camStatus" style="color:var(--danger); font-weight: 800; font-size: 0.8rem;">● CAMERA OFFLINE</span>
+            <div id="camActions" style="display: flex; gap: 10px;">
+                <button id="camBtn" class="btn-primary" style="padding: 8px 15px;" onclick="initCamera()">Open Camera</button>
+                <button id="closeCamBtn" class="btn-danger hidden" style="padding: 8px 15px;" onclick="stopCamera()">Close</button>
+            </div>
+        </div>
+        <div class="video-box">
+            <video id="video" autoplay muted playsinline></video>
+            <div id="scanner-overlay"></div>
+            <div id="placeholder" style="color:#475569; text-align:center;">
+                <p>📷 System Offline. Please Open Camera.</p>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
 let stream;
 
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: true })
-    .then(s => {
-        stream = s;
-        document.getElementById("video").srcObject = stream;
-    })
-    .catch(err => alert("Camera access denied! ❌"));
-}
-
-function openAddPerson() {
-    document.getElementById("addPopup").style.display = "block";
-}
-
-function clickCapture() {
-    const id = document.getElementById("id").value;
-    const name = document.getElementById("name").value;
-
-    if (!id || !name) {
-        alert("Bhai ID aur Name toh daal de! ❌");
-        return;
+async function initCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        const video = document.getElementById("video");
+        video.srcObject = stream;
+        document.getElementById("camStatus").innerText = "● LIVE SYSTEM ACTIVE";
+        document.getElementById("camStatus").style.color = "var(--success)";
+        document.getElementById("camBtn").classList.add("hidden");
+        document.getElementById("closeCamBtn").classList.remove("hidden");
+        document.getElementById("placeholder").classList.add("hidden");
+    } catch (err) {
+        alert("Camera Error! ❌");
     }
+}
+
+function stopCamera() {
+    if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+    document.getElementById("video").srcObject = null;
+    document.getElementById("camStatus").innerText = "● CAMERA OFFLINE";
+    document.getElementById("camStatus").style.color = "var(--danger)";
+    document.getElementById("camBtn").classList.remove("hidden");
+    document.getElementById("closeCamBtn").classList.add("hidden");
+    document.getElementById("placeholder").classList.remove("hidden");
+    document.getElementById("scanner-overlay").style.display = "none";
+}
+
+function toggleReg(show) {
+    if(show && !stream) { alert("Pehle Camera on karein! 🎥"); return; }
+    document.getElementById("regForm").classList.toggle("hidden", !show);
+    document.getElementById("mainControls").classList.toggle("hidden", show);
+}
+
+async function clickCapture() {
+    const id = document.getElementById("id").value.trim();
+    const name = document.getElementById("name").value.trim();
+    if (!id || !name) { alert("Details fill karein! ❌"); return; }
+
+    const checkRes = await fetch("/check_id", { method: "POST", body: new URLSearchParams({'id': id}) });
+    const checkResult = await checkRes.json();
+    if (checkResult.exists) { alert("❌ ID already taken!"); return; }
 
     const video = document.getElementById("video");
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
 
     canvas.toBlob(blob => {
@@ -172,71 +292,68 @@ function clickCapture() {
         formData.append("id", id);
         formData.append("name", name);
 
-        fetch("/upload", { method: "POST", body: formData })
-        .then(res => res.text())
-        .then(msg => {
-            alert(msg);
-            closeCamera();
+        fetch("/upload", { method: "POST", body: formData }).then(async res => {
+            if (res.status === 200) {
+                alert("✅ Person Added!");
+                document.getElementById("trainBtn").disabled = false;
+                document.getElementById("trainBtn").classList.replace("btn-dark", "btn-primary");
+                toggleReg(false);
+            } else { alert("⚠️ Error: " + await res.text()); }
         });
     });
 }
 
-function closeCamera() {
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    document.getElementById("addPopup").style.display = "none";
-}
-
-function train() {
-    document.getElementById("trainPopup").style.display = "block";
+function trainModel() {
+    document.getElementById("trainingOverlay").classList.remove("hidden");
     let progress = 0;
+    const bar = document.getElementById("progressBar");
+    const txt = document.getElementById("percentText");
+
     let interval = setInterval(() => {
-        progress += 5;
-        document.getElementById("progressBar").value = progress;
-        if (progress >= 100) {
-            clearInterval(interval);
-            fetch("/train").then(() => {
-                alert("Model Trained Successfully! ✅");
-                document.getElementById("trainPopup").style.display = "none";
-                document.getElementById("progressBar").value = 0;
-            });
-        }
-    }, 200);
+        progress += Math.floor(Math.random() * 5) + 2;
+        if(progress > 98) progress = 98;
+        bar.style.width = progress + "%";
+        txt.innerText = progress + "%";
+    }, 150);
+
+    fetch("/train").then(() => {
+        clearInterval(interval);
+        bar.style.width = "100%";
+        txt.innerText = "100%";
+        setTimeout(() => {
+            alert("AI Trained! ✅");
+            document.getElementById("trainingOverlay").classList.add("hidden");
+            document.getElementById("trainBtn").disabled = true;
+            document.getElementById("trainBtn").classList.replace("btn-primary", "btn-dark");
+        }, 500);
+    });
 }
 
-function markAttendance() {
-    let duration = prompt("Enter Class Duration (in minutes):", "60");
+function startAttendanceSession() {
+    if (!stream) { alert("Camera band hai! 🎥"); return; }
+    let duration = prompt("Duration (Minutes):", "60");
     if (!duration) return;
 
-    startCamera();
-    document.getElementById("info-display").style.display = "inline-block";
-    document.getElementById("res-name").innerText = "Scanning Face...";
+    alert("Clock IN Process Initiated!");
+    document.getElementById("statusCard").classList.remove("hidden");
+    document.getElementById("statusTitle").innerText = "SCANNING FOR ENTRY...";
+    document.getElementById("scanner-overlay").style.display = "block";
+    document.getElementById("sessionActions").classList.remove("hidden");
 
-    setTimeout(() => {
-        recognize("IN");
-        setTimeout(() => {
-            recognize("OUT");
-            alert("Auto Clock OUT Completed! ⏰");
-            closeCamera();
-            document.getElementById("info-display").style.display = "none";
-        }, duration * 60000);
-    }, 2000);
+    processRecognition("IN");
 }
 
 function manualClockOut() {
-    recognize("OUT");
-    alert("Manual Clock OUT ✅");
-    closeCamera();
+    processRecognition("OUT");
+    alert("Clock OUT Successful! 👋");
+    stopCamera();
 }
 
-// ===== RECOGNITION + DATA SHOW =====
-function recognize(type) {
+function processRecognition(type) {
     const video = document.getElementById("video");
-    const canvas = document.getElementById("overlay");
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
 
     canvas.toBlob(blob => {
         const formData = new FormData();
@@ -244,30 +361,19 @@ function recognize(type) {
         formData.append("type", type);
 
         fetch("/recognize_upload", { method: "POST", body: formData })
-        .then(res => res.json())
-        .then(data => {
-            const nameEl = document.getElementById("res-name");
-            const idEl = document.getElementById("res-id");
-
+        .then(res => res.json()).then(data => {
+            document.getElementById("scanResult").classList.remove("hidden");
             if (data.status === "success") {
-                // UI update
-                nameEl.innerText = data.name;
-                nameEl.style.color = "#2ecc71";
-                idEl.innerText = "ID: " + data.id;
-
-                // Draw Box on Canvas
-                ctx.strokeStyle = "#2ecc71";
-                ctx.lineWidth = 5;
-                ctx.strokeRect(canvas.width/4, canvas.height/4, canvas.width/2, canvas.height/2);
+                document.getElementById("res-name").innerText = data.name;
+                document.getElementById("res-id").innerText = "ID: " + data.id;
+                document.getElementById("statusTitle").innerText = data.msg;
             } else {
-                nameEl.innerText = "Unknown Person";
-                nameEl.style.color = "#e74c3c";
-                idEl.innerText = "Not Found";
+                document.getElementById("res-name").innerText = "NOT FOUND";
+                document.getElementById("statusTitle").innerText = "RECOGNITION FAILED";
             }
         });
     });
 }
 </script>
-
 </body>
 </html>
