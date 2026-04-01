@@ -32,6 +32,7 @@ def check_id():
         return jsonify({"exists": False})
 
     df = pd.read_csv(CSV_PATH)
+    # Check if ID exists in the 'Id' column
     if not df.empty and str(new_id) in df['Id'].astype(str).values:
         return jsonify({"exists": True})
     
@@ -46,11 +47,13 @@ def upload():
         new_name = request.form.get("name", "").strip()
 
         if not file or not new_id or not new_name:
-            return "Missing Data! ID, Name aur Image zaruri hain. ❌", 400
+            return "Missing Data! ID, Name, and Image are required. ❌", 400
 
+        # Step 1: Temporary save for duplicate face check
         temp_path = "temp_check.jpg"
         file.save(temp_path)
 
+        # Step 2: Recognition Logic (Duplicate Face Check)
         if os.path.exists(MODEL_PATH):
             recognizer = cv2.face.LBPHFaceRecognizer_create()
             recognizer.read(MODEL_PATH)
@@ -58,20 +61,23 @@ def upload():
 
             img = cv2.imread(temp_path)
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            # Lighting Fix for registration
+            # Lighting adjustment for registration
             gray = cv2.equalizeHist(gray)
             faces = faceCascade.detectMultiScale(gray, 1.1, 5)
 
             for (x, y, w, h) in faces:
                 predict_id, conf = recognizer.predict(gray[y:y+h, x:x+w])
+                # LBPH: Confidence < 75 usually indicates a strong match
                 if conf < 75: 
                     if os.path.exists(temp_path): os.remove(temp_path)
                     return f"❌ Face already registered with ID: {predict_id}", 400
 
+        # Step 3: Final Save to Training folder
         final_filename = f"{new_name}.{new_id}.1.jpg"
         final_path = os.path.join("TrainingImage", final_filename)
         os.replace(temp_path, final_path)
 
+        # Step 4: Update Student Database (CSV)
         file_exists = os.path.isfile(CSV_PATH) and os.stat(CSV_PATH).st_size > 0
         with open(CSV_PATH, "a", newline="") as f:
             writer = csv.writer(f)
@@ -79,7 +85,7 @@ def upload():
                 writer.writerow(["Id", "Name"])
             writer.writerow([new_id, new_name])
 
-        return f"Person {new_name} added successfully! ✅", 200
+        return f"Person {new_name} added successfully! Training required. ✅", 200
 
     except Exception as e:
         return f"Server Error: {str(e)}", 500
@@ -89,7 +95,7 @@ def upload():
 def train():
     try:
         Train_Image.TrainImages()
-        return "Model Trained Successfully! ✅"
+        return "Model Trained Successfully! Recognition is now active. ✅"
     except Exception as e:
         return f"Training Error: {str(e)}", 500
 
@@ -98,33 +104,35 @@ def train():
 def recognize_upload():
     try:
         file = request.files.get('image')
-        type_ = request.form.get("type") 
+        type_ = request.form.get("type") # Expected: IN or OUT
 
         if not file:
             return jsonify({"status": "error", "msg": "Image not found"})
 
         if not os.path.exists(MODEL_PATH):
-            return jsonify({"status": "error", "msg": "Model not trained!"})
+            return jsonify({"status": "error", "msg": "Model is not trained!"})
 
         filepath = "temp_rec.jpg"
         file.save(filepath)
 
+        # Load OpenCV Face Recognizer and Cascade
         recognizer = cv2.face.LBPHFaceRecognizer_create()
         recognizer.read(MODEL_PATH)
         faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
         img = cv2.imread(filepath)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # 🟢 LIGHTING IMPROVEMENT (IMPORTANT)
+        # Lighting optimization for better recognition
         gray = cv2.equalizeHist(gray)
         
-        # 🟢 Sensitive Detection (1.1 instead of 1.2)
+        # Face detection parameters
         faces = faceCascade.detectMultiScale(gray, 1.1, 5)
 
         if len(faces) == 0:
             if os.path.exists(filepath): os.remove(filepath)
-            return jsonify({"status": "error", "msg": "Face detect nahi hua!"})
+            return jsonify({"status": "error", "msg": "No face detected in the image!"})
 
+        # Load Student CSV for identification
         df_students = pd.read_csv(CSV_PATH)
         df_students['Id'] = df_students['Id'].astype(str)
 
@@ -133,9 +141,9 @@ def recognize_upload():
 
         for (x, y, w, h) in faces:
             Id, conf = recognizer.predict(gray[y:y+h, x:x+w])
-            print(f"Recognized ID: {Id}, Confidence: {conf}") # Console check
+            print(f"Recognized ID: {Id}, Confidence: {conf}") 
             
-            # Confidence adjust: LBPH mein 100-120 ke beech threshold acha hota hai
+            # Recognition threshold (LBPH: lower value means higher confidence)
             if conf < 115: 
                 row = df_students.loc[df_students['Id'] == str(Id)]
                 if not row.empty:
@@ -144,9 +152,9 @@ def recognize_upload():
 
         if detected_name == "Unknown":
             if os.path.exists(filepath): os.remove(filepath)
-            return jsonify({"status": "error", "msg": "Chehra pehchaan mein nahi aaya!"})
+            return jsonify({"status": "error", "msg": "Face not recognized in the database!"})
 
-        # Attendance CSV Handling
+        # Attendance Logging Logic
         ts = time.time()
         date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
         timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
@@ -160,7 +168,7 @@ def recognize_upload():
         with open(ATTENDANCE_PATH, "r") as f:
             reader = csv.reader(f)
             header = next(reader)
-            rows = [row for row in list(reader) if row] # Skip empty rows
+            rows = [row for row in list(reader) if row] # Filter out empty lines
 
         found = False
         msg = ""
@@ -168,25 +176,27 @@ def recognize_upload():
             if r[0] == str(detected_id) and r[2] == date:
                 found = True
                 if type_ == "IN":
-                    msg = f"{detected_name}, IN pehle se marked hai."
+                    msg = f"{detected_name}, IN entry already exists for today."
                 elif type_ == "OUT":
-                    if r[4] == "":
+                    if r[4] == "": # Ensure OUT column is currently empty
                         r[4] = timeStamp
+                        # Calculate Session Duration
                         t1 = datetime.datetime.strptime(r[3], "%H:%M:%S")
                         t2 = datetime.datetime.strptime(r[4], "%H:%M:%S")
-                        r[5] = str(t2 - t1).split(".")[0]
-                        msg = f"OUT marked! Duration: {r[5]}"
+                        r[5] = str(t2 - t1).split(".")[0] # Strip microseconds
+                        msg = f"OUT entry recorded! Duration: {r[5]}"
                     else:
-                        msg = "OUT pehle hi marked hai."
+                        msg = "OUT entry already exists for today."
                 break
 
         if not found:
             if type_ == "IN":
                 rows.append([detected_id, detected_name, date, timeStamp, "", ""])
-                msg = f"Welcome {detected_name}, IN marked!"
+                msg = f"Welcome {detected_name}, IN entry recorded!"
             else:
-                msg = "Pehle IN mark karein!"
+                msg = "Please record IN entry first before Clocking OUT!"
 
+        # Overwrite CSV with updated data
         with open(ATTENDANCE_PATH, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(header)
@@ -208,9 +218,11 @@ def attendance():
             reader = csv.reader(f)
             header = next(reader, None)
             data = [row for row in list(reader) if row]
-        return render_template("attendance.html", header=header, data=data[::-1])
+        return render_template("attendance.html", header=header, data=data[::-1]) # Descending order
     except Exception as e:
         return str(e)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=True)
+    # Ensure port is handled for cloud/local deployments
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)

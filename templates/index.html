@@ -26,7 +26,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden; /* Desktop par scroll band, panels manage karenge */
+            overflow: hidden; 
         }
 
         header {
@@ -46,15 +46,13 @@
             overflow: hidden;
         }
 
-        /* Responsive Grid for Mobile */
         @media (max-width: 768px) {
             body { overflow: auto; height: auto; }
             .main-wrapper { flex-direction: column; height: auto; }
-            .left-panel { max-width: 100% !important; }
-            .video-box { aspect-ratio: 4/3 !important; height: auto !important; }
+            .left-panel { max-width: 100% !important; flex: none !important; }
+            .video-box { aspect-ratio: 4/3 !important; height: auto !important; flex: none !important; }
         }
 
-        /* ⬅️ LEFT PANEL (Controls) */
         .left-panel {
             flex: 0 0 350px;
             display: flex;
@@ -64,7 +62,6 @@
             padding-right: 5px;
         }
 
-        /* ➡️ RIGHT PANEL (Camera Top-Bottom Fit) */
         .right-panel {
             flex: 1;
             display: flex;
@@ -85,13 +82,12 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         }
 
-        /* 🟢 Video Box - Top to Bottom Fit */
         .video-box {
             position: relative;
             background: #000;
             border-radius: 15px;
             overflow: hidden;
-            flex: 1; /* Takes all available height */
+            flex: 1; 
             border: 2px solid var(--accent);
             display: flex;
             align-items: center;
@@ -101,11 +97,10 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Mirror jaisa full screen effect */
+            object-fit: cover; 
             transform: scaleX(-1);
         }
 
-        /* 🔘 Buttons */
         button {
             padding: 14px;
             font-weight: 700;
@@ -126,7 +121,6 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-dark { background: #334155; color: white; }
 
-        /* Training Overlay */
         #trainingOverlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -138,7 +132,7 @@
         }
 
         .status-card {
-            margin-top: auto; /* Push to bottom of left panel */
+            margin-top: auto; 
             padding: 15px;
             border-radius: 12px;
             background: rgba(56, 189, 248, 0.1);
@@ -222,8 +216,8 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <span id="camStatus" style="color:var(--danger); font-weight: 800; font-size: 0.8rem;">● CAMERA OFFLINE</span>
             <div id="camActions" style="display: flex; gap: 10px;">
-                <button id="camBtn" class="btn-primary" style="padding: 8px 15px;" onclick="initCamera()">Open Camera</button>
-                <button id="closeCamBtn" class="btn-danger hidden" style="padding: 8px 15px;" onclick="stopCamera()">Close</button>
+                <button id="camBtn" class="btn-primary" style="padding: 8px 15px; width: auto;" onclick="initCamera()">Open Camera</button>
+                <button id="closeCamBtn" class="btn-danger hidden" style="padding: 8px 15px; width: auto;" onclick="stopCamera()">Close</button>
             </div>
         </div>
         <div class="video-box">
@@ -251,7 +245,7 @@ async function initCamera() {
         document.getElementById("closeCamBtn").classList.remove("hidden");
         document.getElementById("placeholder").classList.add("hidden");
     } catch (err) {
-        alert("Camera Error! ❌");
+        alert("Camera Access Error! ❌");
     }
 }
 
@@ -267,7 +261,7 @@ function stopCamera() {
 }
 
 function toggleReg(show) {
-    if(show && !stream) { alert("Pehle Camera on karein! 🎥"); return; }
+    if(show && !stream) { alert("Please turn on the camera first! 🎥"); return; }
     document.getElementById("regForm").classList.toggle("hidden", !show);
     document.getElementById("mainControls").classList.toggle("hidden", show);
 }
@@ -275,11 +269,11 @@ function toggleReg(show) {
 async function clickCapture() {
     const id = document.getElementById("id").value.trim();
     const name = document.getElementById("name").value.trim();
-    if (!id || !name) { alert("Details fill karein! ❌"); return; }
+    if (!id || !name) { alert("Please enter all details! ❌"); return; }
 
     const checkRes = await fetch("/check_id", { method: "POST", body: new URLSearchParams({'id': id}) });
     const checkResult = await checkRes.json();
-    if (checkResult.exists) { alert("❌ ID already taken!"); return; }
+    if (checkResult.exists) { alert("❌ ID is already taken!"); return; }
 
     const video = document.getElementById("video");
     const canvas = document.createElement("canvas");
@@ -294,7 +288,7 @@ async function clickCapture() {
 
         fetch("/upload", { method: "POST", body: formData }).then(async res => {
             if (res.status === 200) {
-                alert("✅ Person Added!");
+                alert("✅ Success: Person Profile Saved!");
                 document.getElementById("trainBtn").disabled = false;
                 document.getElementById("trainBtn").classList.replace("btn-dark", "btn-primary");
                 toggleReg(false);
@@ -321,7 +315,7 @@ function trainModel() {
         bar.style.width = "100%";
         txt.innerText = "100%";
         setTimeout(() => {
-            alert("AI Trained! ✅");
+            alert("AI Engine Training Complete! ✅");
             document.getElementById("trainingOverlay").classList.add("hidden");
             document.getElementById("trainBtn").disabled = true;
             document.getElementById("trainBtn").classList.replace("btn-primary", "btn-dark");
@@ -330,8 +324,8 @@ function trainModel() {
 }
 
 function startAttendanceSession() {
-    if (!stream) { alert("Camera band hai! 🎥"); return; }
-    let duration = prompt("Duration (Minutes):", "60");
+    if (!stream) { alert("Camera is offline! 🎥"); return; }
+    let duration = prompt("Enter Session Duration (Minutes):", "60");
     if (!duration) return;
 
     alert("Clock IN Process Initiated!");
@@ -345,7 +339,7 @@ function startAttendanceSession() {
 
 function manualClockOut() {
     processRecognition("OUT");
-    alert("Clock OUT Successful! 👋");
+    alert("Clock OUT Process Completed Successfully! 👋");
     stopCamera();
 }
 
@@ -368,7 +362,7 @@ function processRecognition(type) {
                 document.getElementById("res-id").innerText = "ID: " + data.id;
                 document.getElementById("statusTitle").innerText = data.msg;
             } else {
-                document.getElementById("res-name").innerText = "NOT FOUND";
+                document.getElementById("res-name").innerText = "NOT RECOGNIZED";
                 document.getElementById("statusTitle").innerText = "RECOGNITION FAILED";
             }
         });
