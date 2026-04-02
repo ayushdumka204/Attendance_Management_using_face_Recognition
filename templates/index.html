@@ -46,11 +46,18 @@
             overflow: hidden;
         }
 
+        /* 📱 MOBILE OPTIMIZATION */
         @media (max-width: 768px) {
-            body { overflow: auto; height: auto; }
-            .main-wrapper { flex-direction: column; height: auto; }
+            body { overflow-y: auto; height: auto; }
+            .main-wrapper { 
+                flex-direction: column-reverse; /* Camera (Right Panel) goes to TOP */
+                height: auto; 
+                padding: 10px;
+                overflow: visible;
+            }
             .left-panel { max-width: 100% !important; flex: none !important; }
-            .video-box { aspect-ratio: 4/3 !important; height: auto !important; flex: none !important; }
+            .right-panel { flex: none !important; height: 50vh !important; } /* Camera height fixed for mobile */
+            .video-box { aspect-ratio: 1/1 !important; height: 100% !important; }
         }
 
         .left-panel {
@@ -68,9 +75,10 @@
             flex-direction: column;
             background: var(--card);
             border-radius: 24px;
-            padding: 20px;
+            padding: 15px;
             border: 1px solid rgba(255,255,255,0.1);
             backdrop-filter: blur(15px);
+            min-height: 0;
         }
 
         .panel {
@@ -177,7 +185,6 @@
 <div class="main-wrapper">
     
     <div class="left-panel">
-        
         <div id="regForm" class="panel hidden">
             <h3 style="margin-top:0; color:var(--accent);">👤 Registration</h3>
             <input id="id" type="number" placeholder="Enter Student ID">

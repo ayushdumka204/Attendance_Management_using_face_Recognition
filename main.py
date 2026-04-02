@@ -6,6 +6,8 @@ import pandas as pd
 import datetime
 import time
 import Train_Image
+from datetime import datetime
+import pytz # Import this at the top of main.py
 
 app = Flask(__name__)
 
@@ -99,12 +101,11 @@ def train():
     except Exception as e:
         return f"Training Error: {str(e)}", 500
 
-# ================= RECOGNIZE & ATTENDANCE LOGIC =================
 @app.route('/recognize_upload', methods=['POST'])
 def recognize_upload():
     try:
         file = request.files.get('image')
-        type_ = request.form.get("type") # Expected: IN or OUT
+        type_ = request.form.get("type") # Expected: "IN" or "OUT" (Uppercase)
 
         if not file:
             return jsonify({"status": "error", "msg": "Image not found"})
@@ -115,24 +116,19 @@ def recognize_upload():
         filepath = "temp_rec.jpg"
         file.save(filepath)
 
-        # Load OpenCV Face Recognizer and Cascade
         recognizer = cv2.face.LBPHFaceRecognizer_create()
         recognizer.read(MODEL_PATH)
         faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
         img = cv2.imread(filepath)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Lighting optimization for better recognition
         gray = cv2.equalizeHist(gray)
-        
-        # Face detection parameters
         faces = faceCascade.detectMultiScale(gray, 1.1, 5)
 
         if len(faces) == 0:
             if os.path.exists(filepath): os.remove(filepath)
-            return jsonify({"status": "error", "msg": "No face detected in the image!"})
+            return jsonify({"status": "error", "msg": "No face detected!"})
 
-        # Load Student CSV for identification
         df_students = pd.read_csv(CSV_PATH)
         df_students['Id'] = df_students['Id'].astype(str)
 
@@ -141,9 +137,6 @@ def recognize_upload():
 
         for (x, y, w, h) in faces:
             Id, conf = recognizer.predict(gray[y:y+h, x:x+w])
-            print(f"Recognized ID: {Id}, Confidence: {conf}") 
-            
-            # Recognition threshold (LBPH: lower value means higher confidence)
             if conf < 115: 
                 row = df_students.loc[df_students['Id'] == str(Id)]
                 if not row.empty:
@@ -152,13 +145,15 @@ def recognize_upload():
 
         if detected_name == "Unknown":
             if os.path.exists(filepath): os.remove(filepath)
-            return jsonify({"status": "error", "msg": "Face not recognized in the database!"})
+            return jsonify({"status": "error", "msg": "Face not recognized!"})
 
-        # Attendance Logging Logic
-        ts = time.time()
-        date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-        timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+        # --- TIME SETUP (IST) ---
+        IST = pytz.timezone('Asia/Kolkata')
+        datetime_ist = datetime.now(IST)
+        date = datetime_ist.strftime('%Y-%m-%d')
+        timeStamp = datetime_ist.strftime('%H:%M:%S')
 
+        # --- CSV HANDLING ---
         if not os.path.exists(ATTENDANCE_PATH):
             with open(ATTENDANCE_PATH, "w", newline="") as f:
                 writer = csv.writer(f)
@@ -168,35 +163,44 @@ def recognize_upload():
         with open(ATTENDANCE_PATH, "r") as f:
             reader = csv.reader(f)
             header = next(reader)
-            rows = [row for row in list(reader) if row] # Filter out empty lines
+            rows = [row for row in list(reader) if len(row) >= 3] # Valid rows only
 
         found = False
         msg = ""
+        
+        # Optimized Loop for OUT entry
         for r in rows:
-            if r[0] == str(detected_id) and r[2] == date:
+            # Match ID and Date (Using strip() to avoid hidden spaces)
+            if str(r[0]).strip() == str(detected_id).strip() and str(r[2]).strip() == str(date).strip():
                 found = True
-                if type_ == "IN":
-                    msg = f"{detected_name}, IN entry already exists for today."
-                elif type_ == "OUT":
-                    if r[4] == "": # Ensure OUT column is currently empty
+                if type_ == "OUT":
+                    # Check if OUT column (index 4) is empty or has a placeholder
+                    if len(r) < 5 or r[4] == "" or r[4] == " ":
                         r[4] = timeStamp
-                        # Calculate Session Duration
-                        t1 = datetime.datetime.strptime(r[3], "%H:%M:%S")
-                        t2 = datetime.datetime.strptime(r[4], "%H:%M:%S")
-                        r[5] = str(t2 - t1).split(".")[0] # Strip microseconds
-                        msg = f"OUT entry recorded! Duration: {r[5]}"
+                        try:
+                            # Ensuring indices exist before calculation
+                            t1 = datetime.strptime(r[3], "%H:%M:%S")
+                            t2 = datetime.strptime(r[4], "%H:%M:%S")
+                            r[5] = str(t2 - t1).split(".")[0]
+                            msg = f"Clock OUT recorded for {detected_name}!"
+                        except Exception as e:
+                            r[5] = "00:00:00"
+                            msg = "OUT recorded (Duration calc error)."
                     else:
-                        msg = "OUT entry already exists for today."
+                        msg = "Already clocked OUT for today."
+                elif type_ == "IN":
+                    msg = f"IN entry already exists for {detected_name}."
                 break
 
         if not found:
             if type_ == "IN":
+                # Create a clean row with all 6 columns
                 rows.append([detected_id, detected_name, date, timeStamp, "", ""])
-                msg = f"Welcome {detected_name}, IN entry recorded!"
+                msg = f"Welcome {detected_name}, IN recorded!"
             else:
-                msg = "Please record IN entry first before Clocking OUT!"
+                msg = "No IN entry found! Please Clock IN first."
 
-        # Overwrite CSV with updated data
+        # Rewrite CSV with fixed data
         with open(ATTENDANCE_PATH, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(header)
@@ -206,7 +210,8 @@ def recognize_upload():
         return jsonify({"status": "success", "name": detected_name, "id": detected_id, "msg": msg})
 
     except Exception as e:
-        return jsonify({"status": "error", "msg": f"System Error: {str(e)}"})
+        print(f"Server Error: {e}")
+        return jsonify({"status": "error", "msg": "Internal Server Error!"})
 
 # ================= VIEW ATTENDANCE =================
 @app.route('/attendance')
