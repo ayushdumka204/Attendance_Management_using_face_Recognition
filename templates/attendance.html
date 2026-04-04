@@ -65,11 +65,91 @@
         button:hover {
             background: #b91c1c;
         }
+
+        /* Header and Button Positioning */
+        .header-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn-group-top {
+            position: absolute;
+            top: 35px;
+            right: 40px; /* Right side se gap */
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Proper Rectangle Button Styling */
+        .btn-rect {
+            display: inline-block;
+            padding: 12px 24px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase; /* Professional Look */
+            letter-spacing: 1px;
+            border-radius: 2px; /* Sharp Rectangle Look */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        /* Download Button (Green) */
+        .btn-download {
+            background-color: #16a34a;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .btn-download:hover {
+            background-color: #15803d;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Back Button (Dark Gray/Slate) */
+        .btn-back {
+            background-color: #334155;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background-color: #1e293b;
+            transform: translateY(-1px);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 850px) {
+            .header-container {
+                flex-direction: column;
+                padding-top: 60px;
+            }
+            .btn-group-top {
+                position: static;
+                margin-top: 20px;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
 
-<h1>📊 Attendance Report</h1>
+<div class="header-container">
+    <h1>📊 Attendance Report</h1>
+    
+    <div class="btn-group-top">
+        <a href="/download" class="btn-rect btn-download">Download CSV</a>
+        <a href="/" class="btn-rect btn-back">Back</a>
+    </div>
+</div>
+
+<div class="table-container">
+</div>
 
 {% if data and data|length > 0 %}
 <div class="table-container">

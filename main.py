@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify
+from flask import send_file
 import csv
 import os
 import cv2
@@ -226,6 +227,18 @@ def attendance():
         return render_template("attendance.html", header=header, data=data[::-1]) # Descending order
     except Exception as e:
         return str(e)
+    
+# ================= DOWNLOAD CSV =================
+@app.route('/download')
+def download_file():
+    try:
+        if os.path.exists(ATTENDANCE_PATH):
+            # as_attachment=True se browser file save karne ka option deta hai
+            return send_file(ATTENDANCE_PATH, as_attachment=True)
+        else:
+            return "Attendance file not found! ❌", 404
+    except Exception as e:
+        return f"Download Error: {str(e)}", 500
 
 if __name__ == "__main__":
     # Ensure port is handled for cloud/local deployments
